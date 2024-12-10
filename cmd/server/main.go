@@ -1,10 +1,11 @@
 package main
 
 import (
-	"log"
-	"leetleader_server/internal/database"
 	"leetleader_server/internal/config"
+	"leetleader_server/internal/database"
 	"leetleader_server/internal/routes"
+	"log"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,6 +29,7 @@ func main() {
 
 	// Setup routes
 	routes.AuthRoutes(r)
+	routes.StudentRoutes(r)
 
 	// Start server
 	if err := r.Run(cfg.ServerAddress); err != nil {
