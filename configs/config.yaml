@@ -1,0 +1,9 @@
+server_address: ":8080"
+environment: "debug"
+
+database:
+  host: localhost
+  port: 5432
+  username: myuser
+  password: mypassword
+  dbname: mydb
