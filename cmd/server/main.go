@@ -30,6 +30,7 @@ func main() {
 	// Setup routes
 	routes.AuthRoutes(r)
 	routes.StudentRoutes(r)
+	routes.StaffRoutes(r)
 
 	// Start server
 	if err := r.Run(cfg.ServerAddress); err != nil {
