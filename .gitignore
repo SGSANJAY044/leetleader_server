@@ -1,0 +1,5 @@
+# Ignore build error logs
+build-errors.log
+
+# Ignore temporary files
+tmp/main
