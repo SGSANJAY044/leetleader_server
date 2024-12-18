@@ -9,6 +9,7 @@ import (
 func StaffRoutes(r *gin.Engine) {
 	staff := r.Group("/staffs")
 	{
-		staff.PUT("/:id", handlers.UpdateStaffDetails) // Update staff details
+		staff.PUT("/:mail", handlers.UpdateStaffDetails)
+		staff.GET("/:id", handlers.GetStaffDetails)
 	}
 }
