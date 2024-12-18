@@ -9,6 +9,7 @@ import (
 func StudentRoutes(r *gin.Engine) {
 	student := r.Group("/students")
 	{
-		student.PUT("/:id", handlers.UpdateStudentDetails) // Update student details
+		student.GET("/:roll", handlers.GetStudentDetails)
+		student.PUT("/:mail", handlers.UpdateStudentDetails) 
 	}
 }

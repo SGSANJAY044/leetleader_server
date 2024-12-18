@@ -4,14 +4,14 @@ import (
 	"leetleader_server/internal/database"
 	"leetleader_server/internal/models"
 	"net/http"
-
+	"gorm.io/gorm"
 	"github.com/gin-gonic/gin"
 )
 
 // UpdateStudentDetails updates a student's details
 func UpdateStudentDetails(c *gin.Context) {
 	// Extract the student ID from the URL parameter
-	studentID := c.Param("id")
+	Mail := c.Param("mail")
 
 	var input struct {
 		Name         string `json:"name"`
@@ -30,7 +30,7 @@ func UpdateStudentDetails(c *gin.Context) {
 
 	// Fetch the student from the database
 	var student models.Student
-	if err := database.DB.Where("student_id = ?", studentID).First(&student).Error; err != nil {
+	if err := database.DB.Where("mail = ?", Mail).First(&student).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
 		return
 	}
@@ -62,4 +62,35 @@ func UpdateStudentDetails(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Student details updated successfully", "student": student})
+}
+
+func GetStudentDetails(c *gin.Context) {
+	roll := c.Param("roll") // Get roll from route parameter
+
+	var student models.Student
+	err := database.DB.Where("roll = ?", roll).First(&student).Error
+
+	// Handle the error based on the query result
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Respond with a "not found" message if the student is not found
+			c.JSON(http.StatusNotFound, gin.H{
+				"status":  "error",
+				"message": "Student not found",
+			})
+		} else {
+			// Respond with a generic error message if any other error occurs
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "Database error",
+			})
+		}
+		return
+	}
+
+	// Respond with the student details on success
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   student,
+	})
 }
