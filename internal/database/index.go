@@ -20,7 +20,7 @@ func ConnectDatabase() {
 	}
 
 	// Automigrate models
-	err = db.AutoMigrate(&models.Student{}, &models.Class{}, &models.Department{}, &models.Staff{}, &models.Question{})
+	err = db.AutoMigrate(&models.Student{}, &models.Class{}, &models.Department{}, &models.Staff{}, &models.Question{}, &models.Assignment{})
 	if err != nil {
 		log.Fatalf("Error during migration: %v", err)
 	}

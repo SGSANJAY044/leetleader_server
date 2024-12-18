@@ -1,5 +1,5 @@
 package models
-
+import "time" 
 // Student model
 type Student struct {
 	StudentID   uint   `gorm:"primaryKey"`
@@ -53,4 +53,13 @@ type Question struct {
 	TitleSlug     string `gorm:"size:255;not null;unique"`
 	Difficulty    string `gorm:"size:50;not null"`
 	Question      string `gorm:"type:text;not null"`
+}
+
+type Assignment struct {
+    AssignmentID uint      `gorm:"primaryKey"`
+    StudentID    uint      `gorm:"not null"`  // Foreign key to Student
+    QuestionID   uint      `gorm:"not null"`  // Foreign key to Question
+    AssignedAt   time.Time `gorm:"not null"`  // Timestamp of assignment
+    Submitted    bool      `gorm:"default:false"`
+    SubmittedAt  *time.Time // Nullable, tracks submission time
 }
