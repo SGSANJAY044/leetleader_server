@@ -283,3 +283,39 @@ func UpdateDailyStreak(c *gin.Context) {
 		})
 	}
 }
+
+func GetStudentsByClass(c *gin.Context) {
+    classID := c.Param("classID") // Get ClassID from route parameter
+
+    var students []models.Student
+    if err := database.DB.Where("class_id = ?", classID).Find(&students).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Failed to fetch students",
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "students": students,
+    })
+}
+
+func GetStudentsByDept(c *gin.Context) {
+    departmentID := c.Param("departmentID")
+
+    var students []models.Student
+    if err := database.DB.Where("department_id = ?", departmentID).Find(&students).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Failed to fetch students",
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "students": students,
+    })
+}
