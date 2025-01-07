@@ -7,6 +7,8 @@ import (
 	"leetleader_server/internal/database"
 	"leetleader_server/internal/models"
 	"net/http"
+	"time"
+	"strconv"
 	"gorm.io/gorm"
 	"github.com/gin-gonic/gin"
 )
@@ -184,4 +186,100 @@ func UpdateProblemCount(c *gin.Context) {
 		"message": "Student details updated successfully",
 		"data":    student,
 	})
+}
+
+func UpdateDailyStreak(c *gin.Context) {
+	type Submission struct {
+	Title         string `json:"title"`         
+	TitleSlug     string `json:"titleSlug"`     
+	Timestamp     string `json:"timestamp"`     
+	StatusDisplay string `json:"statusDisplay"` 
+	Lang          string `json:"lang"`          
+   }
+   
+	type SubmissionsResponse struct {
+		Count       int          `json:"count"`
+		Submissions []Submission `json:"submission"`
+	}
+	
+	type Student struct {
+		StudentID uint   `gorm:"primaryKey"`
+		Username  string `gorm:"size:50;unique"`
+		Streak    int    `gorm:"not null"`
+	}
+	username := c.Param("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Username is required",
+		})
+		return
+	}
+
+	apiURL := fmt.Sprintf("http://localhost:3000/%s/acSubmission", username) // Replace with actual API URL
+	resp, err := http.Get(apiURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Failed to fetch data from LeetCode API",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Decode the API response
+	var apiResponse SubmissionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+		fmt.Printf("Failed to decode API response: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Failed to process API response",
+		})
+		return
+	}
+
+	// Check if submissions exist
+	if apiResponse.Count == 0 || len(apiResponse.Submissions) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "No submissions found for today",
+		})
+		return
+	}
+
+	// Check if the first submission timestamp matches today's date
+	firstSubmission := apiResponse.Submissions[0]
+	timestampInt, err := strconv.ParseInt(firstSubmission.Timestamp, 10, 64)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "status":  "error",
+                "message": "Failed to parse submission timestamp",
+            })
+            return
+        }
+	submissionDate := time.Unix(timestampInt, 0).UTC()
+	currentDate := time.Now().UTC()
+
+	if submissionDate.Year() == currentDate.Year() && submissionDate.YearDay() == currentDate.YearDay() {
+		// Increment streak if dates match
+		result := database.DB.Model(&Student{}).Where("username = ?", username).Update("streak", gorm.Expr("streak + 1"))
+		if result.Error != nil {
+			fmt.Printf("Failed to update streak: %v\n", result.Error)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "Failed to update streak",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "Streak updated successfully",
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "No submissions for today; streak not updated",
+		})
+	}
 }
