@@ -11,5 +11,6 @@ func StudentRoutes(r *gin.Engine) {
 	{
 		student.GET("/:roll", handlers.GetStudentDetails)
 		student.PUT("/:mail", handlers.UpdateStudentDetails) 
+		student.PUT("/update/solved/:username", handlers.UpdateProblemCount)
 	}
 }
