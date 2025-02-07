@@ -10,11 +10,11 @@ type Student struct {
 	Ranking     int    `gorm:"not null"`
 	Name        string `gorm:"size:100;not null"`
 	ClassID     uint   `gorm:"not null"`
-	Roll        string `gorm:"size:20;not null;unique"`
+	Roll        string `gorm:"size:20;not null;"`
 	DepartmentID uint  `gorm:"not null"`
 	Phone       string `gorm:"size:15"`
 	Mail        string `gorm:"size:100;unique"`
-	Username    string `gorm:"size:50;unique"`
+	Username    string `gorm:"size:50;"`
 	Password    string `gorm:"not null"` // Secure password storage
 }
 
