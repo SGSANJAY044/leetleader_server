@@ -319,3 +319,57 @@ func GetStudentsByDept(c *gin.Context) {
         "students": students,
     })
 }
+
+func GetStudentsSubmissions(c *gin.Context) {
+	username := c.Param("username")
+	apiURL := fmt.Sprintf("http://localhost:3000/%s/submission", username)
+	resp, err := http.Get(apiURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Failed to fetch data from LeetCode API",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	type submission struct {
+		Title         string `json:"title"`
+		TitleSlug     string `json:"titleSlug"`
+		Timestamp     string `json:"timestamp"`
+		StatusDisplay string `json:"statusDisplay"`
+		Lang          string `json:"lang"`
+	}
+
+	// Read response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error", 
+			"message": "Failed to read response body",
+		})
+		return
+	}
+
+	type SubmissionsResponse struct {
+        Count       int          `json:"count"`
+        Submissions []submission `json:"submission"`
+    }
+
+    // Unmarshal into the wrapper structure
+    var response SubmissionsResponse
+    if err := json.Unmarshal(body, &response); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Failed to unmarshal response",
+        })
+        return
+    }
+
+	
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":     "success",
+		"submission": response.Submissions,
+	})
+}
