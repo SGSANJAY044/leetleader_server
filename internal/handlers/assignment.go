@@ -6,6 +6,7 @@ import (
 	"leetleader_server/internal/models"
 	"time"
 	"github.com/gin-gonic/gin"
+	"strconv"
 )
 
 func AssignQuestion(c *gin.Context) {
@@ -111,3 +112,41 @@ func AssignQuestions(c *gin.Context) {
 
 	c.JSON(http.StatusPartialContent, response)
 }
+
+// GetTodaysAssignments retrieves assignments for a student within the last 24 hours
+func GetTodaysAssignments(c *gin.Context) {
+	// Get student ID from URL parameter
+	studentID := c.Param("student_id")
+
+	// Convert string ID to uint
+	id, err := strconv.ParseUint(studentID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	// Calculate time 24 hours ago
+	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
+
+	// Query assignments within last 24 hours
+	var assignments []models.Assignment
+	if err := database.DB.Where("student_id = ? AND assigned_at >= ?", id, twentyFourHoursAgo).Find(&assignments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignments"})
+		return
+	}
+
+	// If no assignments found
+	if len(assignments) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "No assignments found for the last 24 hours",
+			"assignments": []models.Assignment{},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Assignments retrieved successfully",
+		"assignments": assignments,
+	})
+}
+

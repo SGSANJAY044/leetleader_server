@@ -11,5 +11,6 @@ func AssignmentRoutes(r *gin.Engine) {
 	{ 
 		assignment.POST("/assign/todaytask", handlers.AssignQuestion)
 		assignment.POST("/assign/todaytasks", handlers.AssignQuestions)
+		assignment.GET("/todaytasks/:student_id", handlers.GetTodaysAssignments)
 	}
 }
