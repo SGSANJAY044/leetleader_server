@@ -57,9 +57,9 @@ type Question struct {
 
 type Assignment struct {
     AssignmentID uint      `gorm:"primaryKey"`
-    StudentID    uint      `gorm:"not null"`  // Foreign key to Student
-    QuestionID   uint      `gorm:"not null"`  // Foreign key to Question
-    AssignedAt   time.Time `gorm:"not null"`  // Timestamp of assignment
+    StudentID    uint      `gorm:"not null"`  
+    TitleSlug    string    `gorm:"not null"`  
+    AssignedAt   time.Time `gorm:"not null"`  
     Submitted    bool      `gorm:"default:false"`
-    SubmittedAt  *time.Time // Nullable, tracks submission time
+    SubmittedAt  *time.Time 
 }

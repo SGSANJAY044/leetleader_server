@@ -12,8 +12,8 @@ import (
 func AssignQuestion(c *gin.Context) {
 	println("IN")
 	var input struct {
-		StudentID   uint      `json:"student_id" binding:"required"`
-		QuestionID  uint      `json:"question_id" binding:"required"`
+		StudentID uint   `json:"student_id" binding:"required"`
+		TitleSlug string `json:"title_slug" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -30,14 +30,14 @@ func AssignQuestion(c *gin.Context) {
 
 	// Check if the question is already assigned to the student
 	var existingAssignment models.Assignment
-	if err := database.DB.Where("student_id = ? AND question_id = ?", input.StudentID, input.QuestionID).First(&existingAssignment).Error; err == nil {
+	if err := database.DB.Where("student_id = ? AND title_slug = ?", input.StudentID, input.TitleSlug).First(&existingAssignment).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "This question is already assigned to the student"})
 		return
 	}
 
 	assignment := models.Assignment{
 		StudentID:  input.StudentID,
-		QuestionID: input.QuestionID,
+		TitleSlug:  input.TitleSlug,
 		AssignedAt: time.Now(),
 		Submitted:  false,
 	}
@@ -52,8 +52,8 @@ func AssignQuestion(c *gin.Context) {
 
 func AssignQuestions(c *gin.Context) {
 	var input struct {
-		StudentID   uint   `json:"student_id" binding:"required"`
-		QuestionIDs []uint `json:"question_ids" binding:"required"`
+		StudentID  uint     `json:"student_id" binding:"required"`
+		TitleSlugs []string `json:"title_slugs" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -69,25 +69,25 @@ func AssignQuestions(c *gin.Context) {
 	}
 
 	successfulAssignments := []models.Assignment{}
-	failedAssignments := []uint{}
+	failedAssignments := []string{}
 
-	for _, questionID := range input.QuestionIDs {
+	for _, titleSlug := range input.TitleSlugs {
 		// Check if the question is already assigned to the student
 		var existingAssignment models.Assignment
-		if err := database.DB.Where("student_id = ? AND question_id = ?", input.StudentID, questionID).First(&existingAssignment).Error; err == nil {
-			failedAssignments = append(failedAssignments, questionID)
+		if err := database.DB.Where("student_id = ? AND title_slug = ?", input.StudentID, titleSlug).First(&existingAssignment).Error; err == nil {
+			failedAssignments = append(failedAssignments, titleSlug)
 			continue
 		}
 
 		assignment := models.Assignment{
 			StudentID:  input.StudentID,
-			QuestionID: questionID,
+			TitleSlug:  titleSlug,
 			AssignedAt: time.Now(),
 			Submitted:  false,
 		}
 
 		if err := database.DB.Create(&assignment).Error; err != nil {
-			failedAssignments = append(failedAssignments, questionID)
+			failedAssignments = append(failedAssignments, titleSlug)
 			continue
 		}
 
@@ -97,7 +97,7 @@ func AssignQuestions(c *gin.Context) {
 	response := gin.H{
 		"message":               "Assignments processed",
 		"successful_assignments": successfulAssignments,
-		"failed_question_ids":   failedAssignments,
+		"failed_title_slugs":    failedAssignments,
 	}
 
 	if len(successfulAssignments) == 0 {
@@ -149,4 +149,5 @@ func GetTodaysAssignments(c *gin.Context) {
 		"assignments": assignments,
 	})
 }
+
 
