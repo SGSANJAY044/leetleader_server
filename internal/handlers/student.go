@@ -366,10 +366,174 @@ func GetStudentsSubmissions(c *gin.Context) {
         return
     }
 
-	
+    // Find latest passed submission
+    var latestPassedSubmission submission
+    for _, sub := range response.Submissions {
+        if sub.StatusDisplay == "Accepted" {
+            latestPassedSubmission = sub
+            break
+        }
+    }
+
+    // Get student by username
+    var student models.Student
+    if err := database.DB.Where("username = ?", username).First(&student).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{
+            "status":  "error",
+            "message": "Student not found",
+        })
+        return
+    }
+
+    // Update or create FriendsQuestions entry
+    var friendQuestion models.FriendsQuestions
+    result := database.DB.Where("student_id = ?", student.StudentID).First(&friendQuestion)
+    
+    if result.Error == nil {
+        // Update existing record
+        friendQuestion.TitleSlug = latestPassedSubmission.TitleSlug
+        if err := database.DB.Save(&friendQuestion).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "status":  "error",
+                "message": "Failed to update friends question",
+            })
+            return
+        }
+    } else {
+        // Create new record
+        friendQuestion = models.FriendsQuestions{
+            StudentID: student.StudentID,
+            TitleSlug: latestPassedSubmission.TitleSlug,
+        }
+        if err := database.DB.Create(&friendQuestion).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "status":  "error",
+                "message": "Failed to create friends question",
+            })
+            return
+        }
+    }
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":     "success",
 		"submission": response.Submissions,
+	})
+}
+
+// GetFriendsQuestions retrieves all friends' questions from the student's class
+func GetFriendsQuestions(c *gin.Context) {
+	studentID := c.Param("student_id")
+	id, err := strconv.ParseUint(studentID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	// Get student's class ID
+	var student models.Student
+	if err := database.DB.First(&student, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	// Get all students from same class
+	var classmates []models.Student
+	if err := database.DB.Where("class_id = ?", student.ClassID).Find(&classmates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch classmates"})
+		return
+	}
+
+	// Get all friend questions
+	var classmateIDs []uint
+	for _, classmate := range classmates {
+		classmateIDs = append(classmateIDs, classmate.StudentID)
+	}
+
+	var friendsQuestions []models.FriendsQuestions
+	if err := database.DB.Where("student_id IN ?", classmateIDs).Find(&friendsQuestions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch friends questions"})
+		return
+	}
+
+	if len(friendsQuestions) == 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "No friends questions found", "questions": []models.Question{}})
+		return
+	}
+
+	// Get unique title slugs
+	var titleSlugs []string
+	for _, fq := range friendsQuestions {
+		titleSlugs = append(titleSlugs, fq.TitleSlug)
+	}
+
+	// Get questions from DB
+	var questions []models.Question
+	if err := database.DB.Where("title_slug IN ?", titleSlugs).Find(&questions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch questions"})
+		return
+	}
+
+	// Check which questions need to be fetched from API
+	existingTitleSlugs := make(map[string]bool)
+	for _, q := range questions {
+		existingTitleSlugs[q.TitleSlug] = true
+	}
+
+	var missingQuestions []models.Question
+	for _, titleSlug := range titleSlugs {
+		if !existingTitleSlugs[titleSlug] {
+			apiURL := fmt.Sprintf("http://localhost:3000/select?titleSlug=%s", titleSlug)
+			resp, err := http.Get(apiURL)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch from API"})
+				return
+			}
+			defer resp.Body.Close()
+
+			var apiResponse struct {
+				Link                string   `json:"link"`
+				QuestionId         string   `json:"questionId"`
+				QuestionFrontendId string   `json:"questionFrontendId"`
+				QuestionTitle      string   `json:"questionTitle"`
+				TitleSlug          string   `json:"titleSlug"`
+				Difficulty         string   `json:"difficulty"`
+				Question           string   `json:"question"`
+				TopicTags         []struct {
+					Name            string `json:"name"`
+					Slug            string `json:"slug"`
+					TranslatedName  string `json:"translatedName"`
+				} `json:"topicTags"`
+			}
+
+			if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse API response"})
+				return
+			}
+
+			questionID, _ := strconv.ParseUint(apiResponse.QuestionId, 10, 32)
+			newQuestion := models.Question{
+				QuestionID:    uint(questionID),
+				QuestionTitle: apiResponse.QuestionTitle,
+				TitleSlug:     apiResponse.TitleSlug,
+				Difficulty:    apiResponse.Difficulty,
+				Question:      apiResponse.Question,
+			}
+
+			missingQuestions = append(missingQuestions, newQuestion)
+		}
+	}
+
+	// Store new questions in DB
+	if len(missingQuestions) > 0 {
+		if err := database.DB.Create(&missingQuestions).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save questions to DB"})
+			return
+		}
+		questions = append(questions, missingQuestions...)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Friends questions retrieved successfully",
+		"questions": questions,
 	})
 }

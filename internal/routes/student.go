@@ -16,5 +16,6 @@ func StudentRoutes(r *gin.Engine) {
 		student.GET("/class/:classID", handlers.GetStudentsByClass)
 		student.GET("/dept/:departmentID", handlers.GetStudentsByDept)
 		student.GET("/submissions/:username", handlers.GetStudentsSubmissions)
+		student.GET("/friends/:student_id", handlers.GetFriendsQuestions)
 	}
 }
