@@ -54,7 +54,7 @@ type Question struct {
 	Difficulty    string `gorm:"size:50;not null"`
 	Question      string `gorm:"type:text;not null"`
 }
-
+// Assignment model
 type Assignment struct {
     AssignmentID uint      `gorm:"primaryKey"`
     StudentID    uint      `gorm:"not null"`  
@@ -62,4 +62,10 @@ type Assignment struct {
     AssignedAt   time.Time `gorm:"not null"`  
     Submitted    bool      `gorm:"default:false"`
     SubmittedAt  *time.Time 
+}
+
+// FriendsQuestions model
+type FriendsQuestions struct {
+	StudentID   uint      `gorm:"primaryKey"`
+	TitleSlug   string    `gorm:"not null"`
 }
