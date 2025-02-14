@@ -7,6 +7,9 @@ import (
 	"time"
 	"github.com/gin-gonic/gin"
 	"strconv"
+	"encoding/json"
+    "fmt"
+
 )
 
 func AssignQuestion(c *gin.Context) {
@@ -150,4 +153,101 @@ func GetTodaysAssignments(c *gin.Context) {
 	})
 }
 
+
+// GetTodayAssignmentQuestions retrieves the full question details for today's assignments
+func GetTodayAssignmentQuestions(c *gin.Context) {
+	studentID := c.Param("student_id")
+	id, err := strconv.ParseUint(studentID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
+	var assignments []models.Assignment
+	if err := database.DB.Where("student_id = ? AND assigned_at >= ?", id, twentyFourHoursAgo).Find(&assignments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignments"})
+		return
+	}
+
+	if len(assignments) == 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "No assignments found for the last 24 hours", "questions": []models.Question{}})
+		return
+	}
+
+	var titleSlugs []string
+	for _, assignment := range assignments {
+		titleSlugs = append(titleSlugs, assignment.TitleSlug)
+	}
+
+	var questions []models.Question
+	if err := database.DB.Where("title_slug IN ?", titleSlugs).Find(&questions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch questions"})
+		return
+	}
+
+	// Fetch missing questions from API
+	existingTitleSlugs := make(map[string]bool)
+	for _, q := range questions {
+		existingTitleSlugs[q.TitleSlug] = true
+	}
+
+	var missingQuestions []models.Question
+	for _, titleSlug := range titleSlugs {
+		if !existingTitleSlugs[titleSlug] {
+			apiURL := fmt.Sprintf("http://localhost:3000/select?titleSlug=%s", titleSlug)
+			resp, err := http.Get(apiURL)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch from API"})
+				return
+			}
+			defer resp.Body.Close()
+
+			var apiResponse struct {
+				Link                string   `json:"link"`
+				QuestionId         string   `json:"questionId"`
+				QuestionFrontendId string   `json:"questionFrontendId"`
+				QuestionTitle      string   `json:"questionTitle"`
+				TitleSlug          string   `json:"titleSlug"`
+				Difficulty         string   `json:"difficulty"`
+				Question           string   `json:"question"`
+				TopicTags         []struct {
+					Name            string `json:"name"`
+					Slug            string `json:"slug"`
+					TranslatedName  string `json:"translatedName"`
+				} `json:"topicTags"`
+			}
+
+			if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse API response"})
+				return
+			}
+
+			questionID, _ := strconv.ParseUint(apiResponse.QuestionId, 10, 32)
+			newQuestion := models.Question{
+				QuestionID:    uint(questionID),
+				QuestionTitle: apiResponse.QuestionTitle,
+				TitleSlug:     apiResponse.TitleSlug,
+				Difficulty:    apiResponse.Difficulty,
+				Question:      apiResponse.Question,
+			}
+
+			missingQuestions = append(missingQuestions, newQuestion)
+		}
+	}
+
+	// Store new questions in DB
+	if len(missingQuestions) > 0 {
+		if err := database.DB.Create(&missingQuestions).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save questions to DB"})
+			return
+		}
+		questions = append(questions, missingQuestions...)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Assignment questions retrieved successfully",
+		"questions": questions,
+	})
+}
 
